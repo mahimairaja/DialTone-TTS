@@ -20,14 +20,17 @@ a system it knows nothing about, so the dependency only runs one way.
 
 ## Explainer
 
-<!-- Replace VIDEO_ID once the video is uploaded. GitHub cannot embed a player in a
-     README, so this renders as a clickable thumbnail. -->
-[![DialTone explainer](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=VIDEO_ID)
+[![DialTone explainer](https://img.youtube.com/vi/xuxqGpFmadI/maxresdefault.jpg)](https://youtu.be/xuxqGpFmadI)
 
 Five minutes on what a phone line does to speech, the scoring bug that nearly
 invalidated the whole benchmark, and the measurement that killed the design it was
 meant to validate. Animated with Manim, narrated locally with Kokoro-82M; sources in
 `video/`, regenerate with `./video/render.sh -qh`.
+
+The published cut predates the determinism work, so its chunking figures come from an
+earlier run (348 ms against 354 ms, 657 ms against 678 ms) and it does not yet carry
+the result at the top of this README: that the phone line improves word error rate on
+both systems. The conclusions are unchanged. The tables here are current.
 
 ## What it found
 
