@@ -1,6 +1,6 @@
 # Baseline findings
 
-Status: **Piper measured and reproducible.** 300 utterances, four conditions,
+Status: **Piper measured, reproducible, and listened to.** 300 utterances, four conditions,
 faster-whisper large-v3, on deterministic synthesis. Two consecutive runs produced
 1,200 identical transcripts, so the reproducibility band is 0.0 points and every
 figure below is exact rather than approximate.
@@ -22,6 +22,28 @@ Generation-side latency: p50 157.9 ms, p95 224.9 ms.
 The loss series is monotonic, as physics requires: more dropped frames, more errors.
 That ordering failed on the pre-fix numbers, which was the first sign something was
 wrong.
+
+## Listening gate
+
+Performed 2026-08-20 by Mahimai, on `piper-1.6.1+en_US-lessac-medium+det`. 24 samples:
+six utterances, one per category, across all four conditions. **Passed.** Wideband
+sounds like clean studio speech, the codec arm sounds like a phone call and stays
+intelligible, the loss conditions drop audibly without continuous damage, and nothing
+is silence, static, clipping or a truncated word.
+
+This is the only check that can invalidate a word error rate, because a rate can look
+perfect while the audio is broken. It is now the difference between the Piper figures
+being numbers and being results.
+
+What it does not cover, stated so nobody reads it as broader than it is:
+
+- **ZipVoice has never been listened to.** No ZipVoice figure has passed this gate.
+- Six utterances of 300. A systematic defect on a category would show; a rare one
+  would not.
+- The augmented-clip gate, confirming augmentation sounds like a real phone line, is
+  not applicable yet: augmentation is not built.
+
+Regenerate the samples with `./scripts/fetch_samples.sh`.
 
 ## Systems not yet re-measured
 
@@ -151,8 +173,8 @@ picking one.
 
 The benchmark is now trustworthy for Piper. Three things follow, in order.
 
-**Do the listening gate.** It is free and it is the only check that can invalidate
-everything above. A word error rate can look perfect while the audio is broken.
+**The listening gate is done for Piper**, so those figures are results rather than
+numbers. ZipVoice still has to pass it.
 
 **Re-measure ZipVoice on deterministic synthesis**, and probe it first with
 `probe_zipvoice_determinism`. It is flow matching and starts from noise, so it may
