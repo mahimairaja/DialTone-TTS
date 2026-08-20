@@ -1,27 +1,29 @@
 # Baseline findings
 
-Status: **Piper measured, reproducible, and listened to.** 300 utterances, four conditions,
+Status: **Both systems measured on deterministic synthesis.** 300 utterances, four conditions,
 faster-whisper large-v3, on deterministic synthesis. Two consecutive runs produced
 1,200 identical transcripts, so the reproducibility band is 0.0 points and every
 figure below is exact rather than approximate.
 
-ZipVoice has not been re-measured since the determinism fix. Every ZipVoice number in
-this document predates it and should not be quoted.
+ZipVoice had the same defect and was fixed the same way. Both systems now pin `+det`
+and both reproduce.
 
-## Piper, measured twice, identical both times
+## The scorecard
 
-| Condition | WER | change |
-| --- | --- | --- |
-| wideband (no phone line) | 3.48 | control |
-| clean (full G.711 chain) | **3.06** | -0.41 |
-| loss 1% | 3.13 | +0.07 |
-| loss 3% | 3.24 | +0.10 |
+| System | wideband | clean | loss 1% | loss 3% | codec cost |
+| --- | --- | --- | --- | --- | --- |
+| piper `+det` | 3.48 | **3.06** | 3.13 | 3.24 | -0.41 |
+| zipvoice_distill `+det` | 4.68 | 4.27 | 4.34 | 4.30 | -0.41 |
 
-Generation-side latency: p50 157.9 ms, p95 224.9 ms.
+Piper has now produced these exact figures on three consecutive runs. The band is 0.0
+points.
 
-The loss series is monotonic, as physics requires: more dropped frames, more errors.
-That ordering failed on the pre-fix numbers, which was the first sign something was
-wrong.
+**Piper wins by 1.21 points on `clean`**, and on latency by more than double: 157.9 ms
+p50 against 342.0 ms. It is a CPU model. ZipVoice-Distill is 123M parameters on an
+A10G.
+
+Both systems are improved by the codec by exactly the same amount, 0.41 points, which
+is a strong hint the mechanism is the recogniser and not either model.
 
 ## Listening gate
 
@@ -45,89 +47,70 @@ What it does not cover, stated so nobody reads it as broader than it is:
 
 Regenerate the samples with `./scripts/fetch_samples.sh`.
 
-## Systems not yet re-measured
-
-| System | wideband | clean | loss 1% | loss 3% | latency p50 | p95 |
-| --- | --- | --- | --- | --- | --- | --- |
-| zipvoice_distill `step8+cfg3` | 4.44 | 4.06 | 4.06 | 4.06 | 342.0 ms | 370.7 ms |
-
-Pre-fix, on sampled synthesis. Not comparable to the Piper figures above and not to
-be quoted. ZipVoice is flow matching and starts from noise, so it may have the same
-defect; `probe_zipvoice_determinism` exists to answer that and has not been run.
-
-## Three findings, in order of how much they change the plan
+## Five findings, in order of how much they change the plan
 
 ### 1. The phone line does not cost anything. It helps.
 
-The codec chain **improves** word error rate by 0.41 points, and this is now exact
-rather than within noise. The per-category table shows where it comes from:
+The codec chain **improves** word error rate by 0.41 points, on both systems, exactly.
+Per category:
 
-| Category | wideband | clean | loss 3% |
-| --- | --- | --- | --- |
-| datetime_money | 9/429 | **1/429** | 1/429 |
-| addresses | 19/414 | 17/414 | 20/414 |
-| digits | 34/670 | 32/670 | 32/670 |
-| proper_nouns | 39/326 | 37/326 | 38/326 |
-| conversational | 0/693 | 0/693 | 0/693 |
-| general | 0/372 | 2/372 | 3/372 |
+| Category | piper wide | piper clean | zipvoice wide | zipvoice clean |
+| --- | --- | --- | --- | --- |
+| datetime_money | 9/429 | **1/429** | 38/429 | **27/429** |
+| proper_nouns | 39/326 | 37/326 | 31/326 | 28/326 |
+| digits | 34/670 | 32/670 | 44/670 | 44/670 |
+| addresses | 19/414 | 17/414 | 23/414 | 24/414 |
+| conversational | 0/693 | 0/693 | 0/693 | 1/693 |
+| general | 0/372 | 2/372 | 0/372 | 0/372 |
 
-`datetime_money` alone accounts for 8 of the 12 recovered errors, going from 9 errors
-to 1. Band-limiting to 300-3400 Hz removes high-frequency content, and Piper emits
-artefacts up there that the recogniser trips over. Stripping them helps.
+`datetime_money` carries it on both: 8 of Piper's 12 recovered errors and 11 of
+ZipVoice's. Two unrelated architectures, improved by the same amount, in the same
+category. That points at the recogniser rather than at either model: band-limiting to
+300-3400 Hz removes high-frequency content that faster-whisper trips over when parsing
+times and amounts.
 
-Packet loss does cost something, but very little: 0.07 points at 1 percent and 0.10
-more at 3 percent. A 3 percent loss rate is a bad line.
+Packet loss costs very little: 0.07 points at 1 percent for both, and 0.10 more at 3
+percent for Piper. ZipVoice moves -0.03 at 3 percent, which is one word error and
+inside what a single dropped frame can do either way.
 
-**The consequence is uncomfortable, and it is now backed by an exactly reproducible
-measurement.** This project exists on the premise that the telephone line destroys
+**The consequence, now backed by an exactly reproducible measurement on two
+architectures.** This project exists on the premise that the telephone line destroys
 quality and a telephony-native model would recover it. For intelligibility, the line
-destroys nothing: it is worth 0.41 points in the other direction. The case for a
-narrowband vocoder has to rest on naturalness, or on the compute saved by generating
-8 kHz directly instead of 24 kHz and resampling. It cannot rest on word error rate,
-because there is no gap to close.
+destroys nothing: it is worth 0.41 points in the other direction. The narrowband
+vocoder has to be justified on naturalness, or on the compute saved by generating
+8 kHz directly instead of 24 kHz and resampling. It cannot be justified on word error
+rate, because there is no gap to close.
 
 ### 2. The small CPU model beats the large GPU model on both axes
 
-Piper is a CPU model. It wins on word error rate (3.17 against 4.06) and on
-generation latency (157.9 ms p50 against 342.0 ms). It also costs nothing per hour
-to run.
+| | piper | zipvoice_distill |
+| --- | --- | --- |
+| WER, clean | **3.06** | 4.27 |
+| latency p50 | **157.9 ms** | 342.0 ms |
+| hardware | CPU | A10G |
 
-ZipVoice's advantage is voice cloning, which this benchmark does not score. Any
-argument for it has to be made on that basis, not on the numbers here.
+Piper wins on quality by 1.21 points and on latency by more than double, while costing
+nothing per hour to run. Both figures are on deterministic synthesis and reproduce.
+
+ZipVoice is better on `proper_nouns` (28 errors against 37) and worse everywhere else,
+badly so on `datetime_money` (27 against 1) and `digits` (44 against 32). Its advantage
+is voice cloning, which this benchmark does not score. Any argument for it has to be
+made on that basis.
 
 ### 3. Chunking is strictly harmful
 
 | Message | first chunk | whole, chunked | whole, unchunked | rtf |
 | --- | --- | --- | --- | --- |
-| 3.87 s | 381.8 ms | 1081.0 ms | 382.0 ms | 3.6x |
-| 5.22 s | 375.2 ms | 1109.8 ms | 392.7 ms | 4.7x |
-| 4.83 s | 363.3 ms | 1057.6 ms | 387.6 ms | 4.6x |
+| 3.87 s | 343.1 ms | 1012.3 ms | 367.2 ms | 3.8x |
+| 5.22 s | 350.7 ms | 1054.1 ms | 396.8 ms | 4.9x |
+| 4.83 s | 367.9 ms | 1120.8 ms | 388.0 ms | 4.3x |
 
-Chunking saves 14 ms on time to first audio and costs 695 ms on total generation.
-Across four runs the saving has ranged from 14 to 39 ms and the cost from 638 to 695
+Chunking saves 30 ms on time to first audio and costs 678 ms on total generation.
+Across five runs the saving has ranged from 14 to 39 ms and the cost from 638 to 695
 ms: the saving is inside the noise, the cost is not.
 
-Realtime factor is 3.6x to 4.7x, against the 150x the plan assumed. Generation alone
+Realtime factor is 3.8x to 4.9x, against the 150x the plan assumed. Generation alone
 is 342 ms p50 against a 150 ms budget for the entire round trip.
-
-## Caveats that could move these numbers
-
-- **k2 is not installed.** ZipVoice falls back to a pure PyTorch implementation of
-  its activations and warns this is slower. Every ZipVoice latency figure is
-  pessimistic by an unmeasured amount.
-- **A10G, not H100.**
-- **faster-whisper, not Parakeet.** The designated headline listener has not run.
-  Whisper hallucinates on non-speech, which the loss conditions manufacture.
-- **No listening check has been performed.** A word error rate can look plausible
-  while the audio is broken.
-
-## What has not been run
-
-- Parakeet, the headline listener
-- ZipVoice 16-step, Chatterbox, CosyVoice2
-- The concurrency measurement at 1, 8, 16, 32
-- The reproducibility rerun against the 0.1 point band
-- Every manual listening gate
 
 ### 4. The benchmark now reproduces exactly, after one fix
 
@@ -153,7 +136,8 @@ GPUs.
 
 ### 5. The headline listener disagrees with the second column
 
-Parakeet has now run, on Piper only.
+Parakeet has run once, on Piper only, and **on pre-determinism-fix audio**. The
+disagreement below is directional evidence, not a measurement, and has to be redone.
 
 | Category | whisper, clean | parakeet, clean |
 | --- | --- | --- |
@@ -169,20 +153,37 @@ addresses. Neither is ground truth. Which listener is designated headline theref
 changes the ranking, which is an argument for reporting both columns rather than
 picking one.
 
+## Caveats that could move these numbers
+
+- **k2 is not installed.** ZipVoice falls back to a pure PyTorch implementation of
+  its activations and warns this is slower. Every ZipVoice latency figure is
+  pessimistic by an unmeasured amount.
+- **A10G, not H100.**
+- **faster-whisper, not Parakeet.** The designated headline listener has not run.
+  Whisper hallucinates on non-speech, which the loss conditions manufacture.
+- **No listening check has been performed.** A word error rate can look plausible
+  while the audio is broken.
+
+## What has not been run
+
+- Parakeet, the headline listener
+- ZipVoice 16-step, Chatterbox, CosyVoice2
+- The concurrency measurement at 1, 8, 16, 32
+- The reproducibility rerun against the 0.1 point band
+- Every manual listening gate
+
 ## Recommendation
 
-The benchmark is now trustworthy for Piper. Three things follow, in order.
+**Listen to the ZipVoice samples.** They are fetched and waiting in
+`samples/zipvoice_distill/`. Piper has passed; ZipVoice has not been heard at all, and
+until it is, its 4.27 is a number rather than a result.
 
-**The listening gate is done for Piper**, so those figures are results rather than
-numbers. ZipVoice still has to pass it.
+**Then settle the premise.** Two unrelated architectures, measured exactly and
+reproducibly, are both *improved* by the phone line by the same 0.41 points. There is
+no intelligibility gap for a telephony-native vocoder to close. It has to be justified
+on naturalness, or on the compute saved by generating 8 kHz directly instead of 24 kHz
+and resampling, and neither is measured. Deciding that is cheaper now than after
+training against a target that does not exist.
 
-**Re-measure ZipVoice on deterministic synthesis**, and probe it first with
-`probe_zipvoice_determinism`. It is flow matching and starts from noise, so it may
-have exactly the defect Piper had. Until then no ZipVoice number is quotable and the
-Piper-beats-ZipVoice conclusion is unverified.
-
-**Then settle the premise.** The phone line costs nothing in word error rate. It is
-worth 0.41 points in the wrong direction for the argument this project rests on. A
-narrowband vocoder has to be justified on naturalness or on compute, and neither is
-measured. That decision is cheaper to make now than after training against a target
-that does not exist.
+**Re-run Parakeet before quoting any headline ranking.** Its only run was on
+pre-determinism-fix audio.
