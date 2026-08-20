@@ -138,3 +138,23 @@ def test_piper_defaults_to_deterministic():
     from handset_bench.adapters.piper import PiperAdapter
 
     assert PiperAdapter().deterministic is True
+
+
+def test_zipvoice_version_states_the_noise_mode():
+    """Flow matching starts from noise, so the seeding mode changes the waveform."""
+    from handset_bench.adapters.zipvoice import ZipVoiceAdapter
+
+    deterministic = ZipVoiceAdapter(model_name="zipvoice_distill")
+    sampled = ZipVoiceAdapter(model_name="zipvoice_distill", deterministic=False)
+
+    assert deterministic.version_string().endswith("+det")
+    assert sampled.version_string().endswith("+sampled")
+    assert ZipVoiceAdapter().deterministic is True
+
+
+def test_text_seed_is_stable_and_varies():
+    """Same text repeats across runs; different text does not collide."""
+    from handset_bench.adapters.zipvoice import _text_seed
+
+    assert _text_seed("hello") == _text_seed("hello")
+    assert _text_seed("hello") != _text_seed("world")

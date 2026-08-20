@@ -42,7 +42,7 @@ systems:
 
   - name: zipvoice_distill
     adapter: handset_bench.adapters.zipvoice:ZipVoiceAdapter
-    version: zipvoice_distill+k2fsa+step8+cfg3
+    version: zipvoice_distill+k2fsa+step8+cfg3+det
     image: zipvoice
     hardware: A10G
     cloning: true
@@ -50,11 +50,12 @@ systems:
       model_name: zipvoice_distill
       num_step: 8
       guidance_scale: 3.0
+      deterministic: true
     note: Upstream ships this checkpoint as 8-step at guidance 3.0, not 4-step.
 
   - name: zipvoice
     adapter: handset_bench.adapters.zipvoice:ZipVoiceAdapter
-    version: zipvoice+k2fsa+step16+cfg1
+    version: zipvoice+k2fsa+step16+cfg1+det
     image: zipvoice
     hardware: A10G
     cloning: true
@@ -62,6 +63,7 @@ systems:
       model_name: zipvoice
       num_step: 16
       guidance_scale: 1.0
+      deterministic: true
 
 # Considered and not yet run, listed so their absence is a stated fact.
 pending:
