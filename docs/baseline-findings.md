@@ -1,8 +1,12 @@
 # Baseline findings
 
-Status: **complete for two systems**. 300 utterances, four conditions, faster-whisper
-large-v3 as the listener. The designated headline listener, Parakeet, has not been
-run, so nothing here is the headline ranking.
+Status: **partial**. 300 utterances, four conditions. Whisper has scored two systems;
+Parakeet has now scored one. A run adding Parakeet and ZipVoice 16-step was
+interrupted partway, so the ZipVoice rows below still come from the earlier
+Whisper-only run.
+
+**Read finding 4 before quoting any number here.** The benchmark does not reproduce
+within its own stated tolerance.
 
 ## Word error rate
 
@@ -84,6 +88,58 @@ is 342 ms p50 against a 150 ms budget for the entire round trip.
 - The concurrency measurement at 1, 8, 16, 32
 - The reproducibility rerun against the 0.1 point band
 - Every manual listening gate
+
+### 4. The benchmark does not reproduce within its stated band
+
+`docs/REPRODUCING.md` claims two runs of the same entry agree within 0.1 percentage
+points. Running the identical Piper configuration twice:
+
+| Condition | run 1 | run 2 | delta | inside 0.1pp |
+| --- | --- | --- | --- | --- |
+| wideband | 3.44 | 3.20 | -0.24 | no |
+| clean | 3.17 | 3.27 | +0.10 | no |
+| loss_1pct | 3.17 | 3.24 | +0.07 | yes |
+| loss_3pct | 3.48 | 3.20 | -0.28 | no |
+
+Three of four are outside the band.
+
+`wideband` locates the cause exactly. It applies no codec and no packet loss, and
+Piper is deterministic CPU synthesis, so the audio is bit-identical between runs. The
+references are identical, confirmed. Yet **63 of 300 transcripts differ**, including
+content changes and not just casing:
+
+```
+dt-0021  run 1: The postal code is K7 of 3M9.
+         run 2: The postal code is K7A3M9.
+```
+
+So the variance is in the listener, not in the codec, the text set or the system
+under test. faster-whisper on GPU is not bit-reproducible at greedy decode.
+
+**What follows.** The 0.1 point band is not achievable with a GPU ASR in the loop,
+and any claim resting on it is unbacked. The Piper against ZipVoice gap is 0.89
+points against run-to-run noise of about 0.28, so that comparison survives; anything
+finer than roughly half a point does not. Either pin the listener to deterministic
+decoding and re-measure the band, or restate the tolerance to what the listener can
+actually deliver. Do not quote the current figure.
+
+### 5. The headline listener disagrees with the second column
+
+Parakeet has now run, on Piper only.
+
+| Category | whisper, clean | parakeet, clean |
+| --- | --- | --- |
+| digits | 35/670 | 31/670 |
+| proper_nouns | 40/326 | 56/326 |
+| addresses | 17/414 | 28/414 |
+| datetime_money | 1/429 | 4/429 |
+| general | 2/372 | 0/372 |
+
+Parakeet scores Piper worse overall (4.13 against 3.27) and the two disagree by
+category: Parakeet is better on digits and general, clearly worse on proper nouns and
+addresses. Neither is ground truth. Which listener is designated headline therefore
+changes the ranking, which is an argument for reporting both columns rather than
+picking one.
 
 ## Recommendation
 

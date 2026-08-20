@@ -69,6 +69,15 @@ if [[ "$SKIP_INGEST" -eq 0 ]]; then
   "$MODAL" run modal/data_app.py
 fi
 
+# A run that dies partway leaves records behind, and the next run then renders them
+# alongside fresh ones as if they were the same measurement. Archive instead.
+if [[ -d results ]]; then
+  ARCHIVE="results.previous"
+  rm -rf "$ARCHIVE"
+  mv results "$ARCHIVE"
+  echo "archived previous results to $ARCHIVE/"
+fi
+
 banner "3. benchmark matrix, cheap systems first"
 # Piper runs first and gates everything else. A system that cannot be built or run
 # is recorded as unavailable with its reason and the matrix continues.
