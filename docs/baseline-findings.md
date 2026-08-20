@@ -1,6 +1,6 @@
 # Baseline findings
 
-Status: **Both systems measured on deterministic synthesis.** 300 utterances, four conditions,
+Status: **Both systems measured, reproducible, and heard.** 300 utterances, four conditions,
 faster-whisper large-v3, on deterministic synthesis. Two consecutive runs produced
 1,200 identical transcripts, so the reproducibility band is 0.0 points and every
 figure below is exact rather than approximate.
@@ -27,21 +27,27 @@ is a strong hint the mechanism is the recogniser and not either model.
 
 ## Listening gate
 
-Performed 2026-08-20 by Mahimai, on `piper-1.6.1+en_US-lessac-medium+det`. 24 samples:
-six utterances, one per category, across all four conditions. **Passed.** Wideband
-sounds like clean studio speech, the codec arm sounds like a phone call and stays
-intelligible, the loss conditions drop audibly without continuous damage, and nothing
-is silence, static, clipping or a truncated word.
+Performed 2026-08-20 by Mahimai on both systems, 24 samples each: six utterances, one
+per category, across all four conditions.
+
+| System | Version | Result |
+| --- | --- | --- |
+| piper | `piper-1.6.1+en_US-lessac-medium+det` | **passed** |
+| zipvoice_distill | `zipvoice_distill+k2fsa+step8+cfg3+det` | **passed** |
+
+On both: wideband sounds like clean studio speech, the codec arm sounds like a phone
+call and stays intelligible, the loss conditions drop audibly without continuous
+damage, and nothing is silence, static, clipping or a truncated word.
 
 This is the only check that can invalidate a word error rate, because a rate can look
-perfect while the audio is broken. It is now the difference between the Piper figures
-being numbers and being results.
+perfect while the audio is broken. It is the difference between these figures being
+numbers and being results.
 
 What it does not cover, stated so nobody reads it as broader than it is:
 
-- **ZipVoice has never been listened to.** No ZipVoice figure has passed this gate.
-- Six utterances of 300. A systematic defect on a category would show; a rare one
-  would not.
+- Six utterances of 300 per system. A systematic defect on a category would show; a
+  rare one would not.
+- Neither ZipVoice 16-step nor any Parakeet-scored audio has been heard.
 - The augmented-clip gate, confirming augmentation sounds like a real phone line, is
   not applicable yet: augmentation is not built.
 
@@ -174,11 +180,9 @@ picking one.
 
 ## Recommendation
 
-**Listen to the ZipVoice samples.** They are fetched and waiting in
-`samples/zipvoice_distill/`. Piper has passed; ZipVoice has not been heard at all, and
-until it is, its 4.27 is a number rather than a result.
-
-**Then settle the premise.** Two unrelated architectures, measured exactly and
+**Settle the premise.** Both systems are measured, reproducible to 0.0 points, and
+heard. The benchmark has answered the question it was built to answer, and further
+breadth will not change that answer. Two unrelated architectures, measured exactly and
 reproducibly, are both *improved* by the phone line by the same 0.41 points. There is
 no intelligibility gap for a telephony-native vocoder to close. It has to be justified
 on naturalness, or on the compute saved by generating 8 kHz directly instead of 24 kHz
