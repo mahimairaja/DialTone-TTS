@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from handset_bench.adapters.base import SynthResult, Timings
 from handset_bench.conditions import CONDITIONS
+from handset_bench.metrics.wer import PARAKEET_MODEL
 from handset_bench.report import (
     drop_size,
     render_csv,
@@ -302,3 +303,25 @@ def test_scorecard_names_the_listener_from_the_records_not_a_default(tmp_path):
 def test_scorecard_flags_that_the_headline_listener_was_not_run(tmp_path):
     md = render_scorecard(_records(tmp_path))
     assert "has NOT been" in md
+
+
+def test_each_listener_gets_its_own_table(tmp_path):
+    """Two listeners must not collide: keying without one silently drops it."""
+    base = _records(tmp_path)
+    parakeet = [
+        {**json.loads(json.dumps(r)), "asr_backend": PARAKEET_MODEL}
+        for r in base
+        if r.get("mode") == "quality"
+    ]
+    md = render_scorecard([*base, *parakeet])
+    assert md.count("## Word error rate by condition, listener") == 2
+    assert PARAKEET_MODEL in md
+
+
+def test_scorecard_says_when_records_span_several_runs(tmp_path):
+    """Two runs an hour apart on the same day are still two runs."""
+    base = _records(tmp_path)
+    stale = json.loads(json.dumps(base[0]))
+    stale["started_at"] = "2020-01-01T00:00:00+00:00"
+    md = render_scorecard([*base, stale])
+    assert "more than\none run" in md or "more than one run" in md

@@ -63,11 +63,47 @@ def _fmt_ms(value: float | None) -> str:
     return _NA if value is None else f"{value:.1f}"
 
 
-def _index(records: Sequence[dict]) -> dict[tuple[str, str, str, str], dict]:
+def _index(records: Sequence[dict]) -> dict[tuple[str, str, str, str, str], dict]:
+    # The listener is part of the key. Without it a second listener overwrites the
+    # first and the scorecard silently reports whichever record sorted last.
     return {
-        (r["system"], r["version"], r["condition"], r.get("mode", "quality")): r
+        (
+            r["system"],
+            r["version"],
+            r["condition"],
+            r.get("mode", "quality"),
+            r.get("asr_backend", "none"),
+        ): r
         for r in records
     }
+
+
+def listeners_in(records: Sequence[dict]) -> list[str]:
+    """Quality listeners present in the records, headline first."""
+    seen = {
+        r["asr_backend"]
+        for r in records
+        if r.get("mode") == "quality" and r.get("asr_backend") not in (None, "none")
+    }
+    return sorted(seen, key=lambda name: (PARAKEET_MODEL not in name, name))
+
+
+def run_span_hours(records: Sequence[dict]) -> float:
+    """Hours between the oldest and newest record, so a blended scorecard can say so."""
+    from datetime import datetime
+
+    stamps = []
+    for record in records:
+        raw = record.get("started_at")
+        if not raw:
+            continue
+        try:
+            stamps.append(datetime.fromisoformat(raw))
+        except ValueError:
+            continue
+    if len(stamps) < 2:
+        return 0.0
+    return (max(stamps) - min(stamps)).total_seconds() / 3600.0
 
 
 def _systems(records: Sequence[dict]) -> list[tuple[str, str]]:
@@ -79,8 +115,10 @@ def _systems(records: Sequence[dict]) -> list[tuple[str, str]]:
     return sorted(seen)
 
 
-def _category_table(records: Sequence[dict]) -> list[str]:
-    """Per-category corpus WER, aggregated over stored reference word counts."""
+def _category_table(records: Sequence[dict], listener: str | None = None) -> list[str]:
+    """Per-category corpus WER for one listener, over stored reference word counts."""
+    if listener is not None:
+        records = [r for r in records if r.get("asr_backend") == listener]
     try:
         from handset_bench.textset import loader
 
@@ -112,7 +150,7 @@ def _category_table(records: Sequence[dict]) -> list[str]:
 
     lines = [
         "",
-        "## Word error rate by category",
+        f"## Word error rate by category, listener `{listener or 'all'}`",
         "",
         "The aggregate can hide opposite effects that cancel. This table is where "
         "the phone line's real cost shows up.",
@@ -177,11 +215,42 @@ def render_scorecard(records: Sequence[dict], *, asr_backend: str | None = None)
     else:
         lines.append(f"- Second listener: `faster-whisper {WHISPER_MODEL}`")
 
+    span = run_span_hours(records)
+    if span > 2.0:
+        lines.append(
+            f"- **These records span {span:.1f} hours, so they come from more than "
+            "one run.** Rows from different runs are not directly comparable; rerun "
+            "the whole matrix before quoting them together."
+        )
+
     lines += [
         "",
         _LATENCY_CAVEAT,
         "",
-        "## Word error rate by condition",
+    ]
+
+    for listener_name in listeners_in(records) or ["unknown"]:
+        lines += _wer_table(records, index, listener_name)
+
+    headline = next(
+        (name for name in listeners_in(records) if PARAKEET_MODEL in name), None
+    )
+    lines += _category_table(records, headline or (listeners_in(records) or [None])[0])
+
+    lines += [
+        "",
+        "## Generation-side latency",
+        "",
+        "| System | Version | p50 ms | p95 ms |",
+        "| --- | --- | --- | --- |",
+    ]
+    return _finish_scorecard(lines, records, index)
+
+
+def _wer_table(records, index, listener_name: str) -> list[str]:
+    """The word error rate table for one listener."""
+    lines = [
+        f"## Word error rate by condition, listener `{listener_name}`",
         "",
         "Lower is better. `wideband` is the pre-codec control; `drop` is how much "
         "the phone line costs.",
@@ -193,10 +262,13 @@ def render_scorecard(records: Sequence[dict], *, asr_backend: str | None = None)
     for system, version in _systems(records):
 
         def wer_for(
-            condition: str, _system: str = system, _version: str = version
+            condition: str,
+            _system: str = system,
+            _version: str = version,
+            _listener: str = listener_name,
         ) -> float | None:
-            # Loop variables are bound as defaults rather than captured, so the
-            record = index.get((_system, _version, condition, "quality"))
+            # Loop variables are bound as defaults rather than captured.
+            record = index.get((_system, _version, condition, "quality", _listener))
             if record is None or record.get("status") != "ok":
                 return None
             return record["aggregate"].get("wer")
@@ -225,17 +297,14 @@ def render_scorecard(records: Sequence[dict], *, asr_backend: str | None = None)
             # Not-applicable is stated with a reason, never left
             lines.append(f"| {system} | `{version}` | {_NA}: {unavailable} | | | | |")
 
-    lines += _category_table(records)
+    lines.append("")
+    return lines
 
-    lines += [
-        "",
-        "## Generation-side latency",
-        "",
-        "| System | Version | p50 ms | p95 ms |",
-        "| --- | --- | --- | --- |",
-    ]
+
+def _finish_scorecard(lines: list[str], records, index) -> str:
+    """Latency table and conditions section, then join."""
     for system, version in _systems(records):
-        record = index.get((system, version, "clean", "latency"))
+        record = index.get((system, version, "clean", "latency", "none"))
         agg = record["aggregate"] if record else {}
         lines.append(
             f"| {system} | `{version}` | "
@@ -311,16 +380,24 @@ def render_numbers_to_beat(records: Sequence[dict]) -> str:
         "",
     ]
 
+    # The best figure is taken from the headline listener when it has run, so a
+    # second-column number can never set a target the headline did not reach.
+    headline = next(
+        (name for name in listeners_in(records) if PARAKEET_MODEL in name), None
+    )
+
     best_wer: tuple[float, str, str] | None = None
-    for (system, version, condition, mode), record in index.items():
+    for (system, version, condition, mode, listener), record in index.items():
         if condition != "clean" or mode != "quality" or record.get("status") != "ok":
+            continue
+        if headline is not None and listener != headline:
             continue
         value = record["aggregate"].get("wer")
         if value is not None and (best_wer is None or value < best_wer[0]):
             best_wer = (value, system, version)
 
     best_latency: tuple[float, str, str] | None = None
-    for (system, version, _condition, mode), record in index.items():
+    for (system, version, _condition, mode, _listener), record in index.items():
         if mode != "latency" or record.get("status") != "ok":
             continue
         value = record["aggregate"].get("ttfb_generation_p95_ms")
