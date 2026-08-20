@@ -34,3 +34,4 @@ media/
 results.previous/
 results.*/
 samples/
+.gstack/

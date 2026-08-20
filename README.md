@@ -30,7 +30,7 @@ built. The benchmark is the result.
 
 <div align="center">
 
-[![DialTone explainer](https://img.youtube.com/vi/xuxqGpFmadI/sddefault.jpg)](https://youtu.be/xuxqGpFmadI)
+[![DialTone explainer](docs/assets/explainer-thumbnail.png)](https://youtu.be/xuxqGpFmadI)
 
 *Five minutes: what a phone line does to speech, the scoring bug that nearly
 invalidated the benchmark, and the measurement that killed the design it was meant to
