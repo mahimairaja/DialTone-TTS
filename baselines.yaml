@@ -1,0 +1,71 @@
+# The reproducibility contract for handset-bench.
+#
+# Every entry pins a version, an image and a settings block. Nothing here may say
+# "latest": a run that cannot be attributed to a specific version of a specific
+# system is discarded rather than published.
+#
+# Systems are measured as shipped. A faster mode and a better mode are two
+# entries, not one system measured twice.
+
+textset: dialtone_v1
+conditions: [wideband, clean, loss_1pct, loss_3pct]
+
+listeners:
+  - name: nvidia/parakeet-tdt-0.6b-v2
+    role: headline
+    runtime: nemo-2.6.0
+    decode: greedy
+    note: Publishes 6.05% WER at 16kHz against 6.32% at mu-law 8kHz, and was trained on Granary including Fisher.
+  - name: faster-whisper-large-v3
+    role: second-column
+    runtime: faster-whisper-1.2.0
+    decode: greedy
+    note: Hallucinates on non-speech, which the degraded-line conditions manufacture. Not the headline for that reason.
+
+prompt_policy:
+  source: libritts-r heldout speakers
+  n_speakers: 3
+  selection: greatest total duration among heldout speakers, ties by speaker id
+  note: Identical conditioning across every cloning system. Cost is that each is handed a voice it has never seen.
+
+systems:
+  - name: piper
+    adapter: handset_bench.adapters.piper:PiperAdapter
+    version: piper-1.6.1+en_US-lessac-medium
+    image: piper
+    hardware: cpu
+    cloning: false
+    settings:
+      voice: en_US-lessac-medium
+
+  - name: zipvoice_distill
+    adapter: handset_bench.adapters.zipvoice:ZipVoiceAdapter
+    version: zipvoice_distill+k2fsa+step8+cfg3
+    image: zipvoice
+    hardware: A10G
+    cloning: true
+    settings:
+      model_name: zipvoice_distill
+      num_step: 8
+      guidance_scale: 3.0
+    note: Upstream ships this checkpoint as 8-step at guidance 3.0, not 4-step.
+
+  - name: zipvoice
+    adapter: handset_bench.adapters.zipvoice:ZipVoiceAdapter
+    version: zipvoice+k2fsa+step16+cfg1
+    image: zipvoice
+    hardware: A10G
+    cloning: true
+    settings:
+      model_name: zipvoice
+      num_step: 16
+      guidance_scale: 1.0
+
+# Considered and not yet run, listed so their absence is a stated fact.
+pending:
+  - name: chatterbox
+    reason: adapter not written
+    note: 350M, MIT. Watermark behaviour through mu-law is untested.
+  - name: cosyvoice2
+    reason: adapter not written
+    note: Licence checked, apache-2.0 on the model card.
