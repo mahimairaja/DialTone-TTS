@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -26,6 +27,11 @@ MODEL_DEFAULTS = {
 SAMPLING_RATE = 24000
 
 
+def _text_seed(text: str) -> int:
+    """A stable seed per utterance, so runs repeat but utterances still differ."""
+    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "big")
+
+
 class ZipVoiceAdapter:
     """Wraps k2-fsa ZipVoice. One model variant per instance."""
 
@@ -38,6 +44,7 @@ class ZipVoiceAdapter:
         num_step: int | None = None,
         guidance_scale: float | None = None,
         device: str | None = None,
+        deterministic: bool = True,
     ):
         if model_name not in MODEL_DEFAULTS:
             raise ValueError(
@@ -52,6 +59,7 @@ class ZipVoiceAdapter:
             guidance_scale if guidance_scale is not None else defaults["guidance_scale"]
         )
         self._device_hint = device
+        self.deterministic = deterministic
         self._loaded = None
         self._prompt_cache = None
 
@@ -125,7 +133,13 @@ class ZipVoiceAdapter:
 
     def version_string(self) -> str:
         """Includes the sampling configuration, because it changes the output."""
-        return f"{self.model_name}+k2fsa+step{self.num_step}+cfg{self.guidance_scale:g}"
+        # The noise mode is part of the identity: it changes the waveform, so a
+        # record made with sampled noise is not comparable to a deterministic one.
+        mode = "det" if self.deterministic else "sampled"
+        return (
+            f"{self.model_name}+k2fsa+step{self.num_step}"
+            f"+cfg{self.guidance_scale:g}+{mode}"
+        )
 
     def _prompt(self) -> tuple[str, str]:
         if not self.prompt_wav or not self.prompt_text:
@@ -184,6 +198,14 @@ class ZipVoiceAdapter:
 
         tokens = tokenizer.texts_to_token_ids([text])
         _ = features, device
+
+        if self.deterministic:
+            # Flow matching integrates from a random starting point, so the same
+            # text gives different audio every call. Seeding from the text keeps
+            # each utterance reproducible while still differing across the corpus.
+            torch.manual_seed(_text_seed(text))
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(_text_seed(text))
 
         with torch.inference_mode():
             pred, _, _, _ = model.sample(
