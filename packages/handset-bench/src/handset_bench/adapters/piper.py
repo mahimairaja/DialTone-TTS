@@ -24,12 +24,15 @@ class PiperAdapter:
         *,
         download_dir: str | Path | None = None,
         use_cuda: bool = False,
+        deterministic: bool = True,
     ):
         self.voice = voice
         self.use_cuda = use_cuda
+        self.deterministic = deterministic
         self._download_dir = Path(download_dir) if download_dir else None
         self._voice = None
         self._piper_version: str | None = None
+        self._syn_config = None
 
     # ------------------------------------------------------------- lifecycle
 
@@ -53,7 +56,25 @@ class PiperAdapter:
             download_voice(self.voice, target)
 
         self._voice = PiperVoice.load(model_path, use_cuda=self.use_cuda)
+
+        if self.deterministic:
+            # Piper is VITS-based and samples noise for its stochastic duration
+            # predictor, so the same text gives a different waveform every call.
+            # Zeroing both noise terms makes synthesis reproducible, which a
+            # benchmark needs more than it needs prosodic variation.
+            try:
+                from piper import SynthesisConfig
+
+                self._syn_config = SynthesisConfig(noise_scale=0.0, noise_w_scale=0.0)
+            except Exception:  # noqa: BLE001 - older piper has no SynthesisConfig
+                self._syn_config = None
         return self._voice
+
+    def _synthesize_chunks(self, engine, text: str):
+        """Yield audio chunks, passing the synthesis config when piper supports one."""
+        if self._syn_config is not None:
+            return engine.synthesize(text, syn_config=self._syn_config)
+        return engine.synthesize(text)
 
     # -------------------------------------------------------------- protocol
 
@@ -63,7 +84,10 @@ class PiperAdapter:
             from importlib.metadata import version as pkg_version
 
             self._piper_version = pkg_version("piper-tts")
-        return f"piper-{self._piper_version}+{self.voice}"
+        # The noise mode is part of the identity: it changes the waveform, so a
+        # record made with sampled noise is not comparable to a deterministic one.
+        mode = "det" if self.deterministic else "sampled"
+        return f"piper-{self._piper_version}+{self.voice}+{mode}"
 
     def synthesize(self, text: str, *, voice: str | None = None) -> SynthResult:
         engine = self._ensure_loaded()
@@ -73,7 +97,7 @@ class PiperAdapter:
         sample_rate: int | None = None
 
         try:
-            for chunk in engine.synthesize(text):
+            for chunk in self._synthesize_chunks(engine, text):
                 if first_audio_ns is None:
                     first_audio_ns = time.perf_counter_ns()
                 if sample_rate is None:
@@ -109,7 +133,7 @@ class PiperAdapter:
         self, text: str, *, voice: str | None = None
     ) -> Iterator[AudioChunk]:
         engine = self._ensure_loaded()
-        for chunk in engine.synthesize(text):
+        for chunk in self._synthesize_chunks(engine, text):
             yield AudioChunk(
                 pcm=np.asarray(chunk.audio_float_array, dtype=np.float32),
                 sample_rate=chunk.sample_rate,

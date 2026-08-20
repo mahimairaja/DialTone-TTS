@@ -119,3 +119,22 @@ def test_audio_chunk_carries_a_receive_timestamp():
         pcm=np.zeros(4, dtype=np.float32), sample_rate=8000, received_ns=123
     )
     assert chunk.received_ns == 123
+
+
+def test_piper_version_states_the_noise_mode():
+    """Zeroed noise changes the waveform, so it has to change the identity too."""
+    from handset_bench.adapters.piper import PiperAdapter
+
+    deterministic = PiperAdapter(voice="en_US-lessac-medium")
+    sampled = PiperAdapter(voice="en_US-lessac-medium", deterministic=False)
+    deterministic._piper_version = sampled._piper_version = "1.6.1"
+
+    assert deterministic.version_string().endswith("+det")
+    assert sampled.version_string().endswith("+sampled")
+    assert deterministic.version_string() != sampled.version_string()
+
+
+def test_piper_defaults_to_deterministic():
+    from handset_bench.adapters.piper import PiperAdapter
+
+    assert PiperAdapter().deterministic is True

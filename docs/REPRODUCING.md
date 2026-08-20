@@ -107,14 +107,16 @@ Re-run any `(system, condition)` pair and compare. An entry whose aggregate WER
 moves more than the band between runs is withheld to `results/withheld/` rather than
 published with a caveat. A caveated number gets quoted without its caveat eventually.
 
-**The band is currently unset, and 0.1 points is not achievable.** Measured, the same
-Piper configuration run twice moved by up to 0.28 points, and three of four
-conditions fell outside 0.1. The cause is the listener: on `wideband`, where no codec
-and no packet loss are applied and the audio is bit-identical between runs, 63 of 300
-transcripts still differed. faster-whisper on GPU is not bit-reproducible at greedy
-decode. Until the listener is pinned to deterministic decoding and the band
-re-measured, treat differences under roughly half a point as noise. See
-`docs/baseline-findings.md`, finding 4.
+**The band is currently unset and has to be re-measured.** The same Piper
+configuration run twice moved by up to 0.28 points, with three of four conditions
+outside 0.1. The cause was the system under test, not the listener: Piper samples
+noise for its stochastic duration predictor, so it produced different audio each run.
+Zeroing both noise terms fixes it, and the version string now carries `+det` or
+`+sampled` because the waveform differs between them.
+
+Two consecutive runs on deterministic synthesis have not yet been compared, so no
+tolerance is claimed here. Every number recorded before the fix was measured on audio
+that changed between runs. See `docs/baseline-findings.md`, finding 4.
 
 ## What the numbers do not say
 
