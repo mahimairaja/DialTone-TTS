@@ -46,8 +46,10 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
+OUT="$OUT/$SYSTEM"
 echo "system:  $SYSTEM"
 echo "version: $VERSION"
+echo "writing: $OUT"
 mkdir -p "$OUT"
 
 for condition in "${CONDITIONS[@]}"; do
@@ -55,8 +57,9 @@ for condition in "${CONDITIONS[@]}"; do
     remote="$SYSTEM/$VERSION/$condition/$id.npy"
     local="$OUT/${id}.${condition}.npy"
     [[ -f "$local" ]] && continue
+    printf '  fetching %s %s\n' "$condition" "$id"
     "$MODAL" volume get --force handset-bench-audio "$remote" "$local" >/dev/null 2>&1 \
-      || { echo "  missing: $remote" >&2; continue; }
+      || { echo "    MISSING on the volume: $remote" >&2; continue; }
   done
 done
 
