@@ -1,0 +1,21 @@
+{
+  "aggregate": {
+    "n_utterances": 300.0,
+    "ttfb_generation_p50_ms": 110.1272725,
+    "ttfb_generation_p95_ms": 156.85490685000002
+  },
+  "asr_backend": "none",
+  "asr_revision": "none",
+  "condition": "clean",
+  "condition_description": "Generation-side timing only. No phone line and no transcription involved: the codec chain runs after generation and cannot affect time to first audio.",
+  "git_describe": "a1cb38e",
+  "modal_environment": "modal",
+  "mode": "latency",
+  "per_utterance": [],
+  "run_id": "e8e3725ea6831847",
+  "started_at": "2026-08-20T10:22:15+00:00",
+  "status": "ok",
+  "system": "piper",
+  "textset_hash": "sha256:851cb1b30397921da76aa3bfae4ec97994cbb4f5a32fe3616f9502c847b73306",
+  "version": "piper-1.6.1+en_US-lessac-medium+det"
+}

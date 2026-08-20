@@ -1,50 +1,68 @@
 # Baseline findings
 
-Status: **partial**. 300 utterances, four conditions. Whisper has scored two systems;
-Parakeet has now scored one. A run adding Parakeet and ZipVoice 16-step was
-interrupted partway, so the ZipVoice rows below still come from the earlier
-Whisper-only run.
+Status: **Piper measured and reproducible.** 300 utterances, four conditions,
+faster-whisper large-v3, on deterministic synthesis. Two consecutive runs produced
+1,200 identical transcripts, so the reproducibility band is 0.0 points and every
+figure below is exact rather than approximate.
 
-**Read finding 4 before quoting any number here.** The benchmark does not reproduce
-within its own stated tolerance.
+ZipVoice has not been re-measured since the determinism fix. Every ZipVoice number in
+this document predates it and should not be quoted.
 
-## Word error rate
+## Piper, measured twice, identical both times
+
+| Condition | WER | change |
+| --- | --- | --- |
+| wideband (no phone line) | 3.48 | control |
+| clean (full G.711 chain) | **3.06** | -0.41 |
+| loss 1% | 3.13 | +0.07 |
+| loss 3% | 3.24 | +0.10 |
+
+Generation-side latency: p50 157.9 ms, p95 224.9 ms.
+
+The loss series is monotonic, as physics requires: more dropped frames, more errors.
+That ordering failed on the pre-fix numbers, which was the first sign something was
+wrong.
+
+## Systems not yet re-measured
 
 | System | wideband | clean | loss 1% | loss 3% | latency p50 | p95 |
 | --- | --- | --- | --- | --- | --- | --- |
-| piper `1.6.1+en_US-lessac-medium` | 4.44 | **3.17** | 3.17 | 3.48 | 157.9 ms | 224.9 ms |
 | zipvoice_distill `step8+cfg3` | 4.44 | 4.06 | 4.06 | 4.06 | 342.0 ms | 370.7 ms |
 
-2,904 reference words, so one word error is worth 0.034 points.
+Pre-fix, on sampled synthesis. Not comparable to the Piper figures above and not to
+be quoted. ZipVoice is flow matching and starts from noise, so it may have the same
+defect; `probe_zipvoice_determinism` exists to answer that and has not been run.
 
 ## Three findings, in order of how much they change the plan
 
-### 1. The phone line costs nothing measurable
+### 1. The phone line does not cost anything. It helps.
 
-Both systems score **better** after the codec than before it. Piper drops from 3.44
-to 3.17, ZipVoice from 4.44 to 4.06. Packet loss at 3 percent costs Piper 0.31
-points and ZipVoice nothing at all.
+The codec chain **improves** word error rate by 0.41 points, and this is now exact
+rather than within noise. The per-category table shows where it comes from:
 
-This is not noise and it is not a bug: the per-category table shows where it comes
-from.
+| Category | wideband | clean | loss 3% |
+| --- | --- | --- | --- |
+| datetime_money | 9/429 | **1/429** | 1/429 |
+| addresses | 19/414 | 17/414 | 20/414 |
+| digits | 34/670 | 32/670 | 32/670 |
+| proper_nouns | 39/326 | 37/326 | 38/326 |
+| conversational | 0/693 | 0/693 | 0/693 |
+| general | 0/372 | 2/372 | 3/372 |
 
-| Category | piper wide | piper clean | zipvoice wide | zipvoice clean |
-| --- | --- | --- | --- | --- |
-| datetime_money | 6/429 | 2/429 | 28/429 | 19/429 |
-| proper_nouns | 40/326 | 36/326 | 34/326 | 33/326 |
-| digits | 33/670 | 32/670 | 39/670 | 41/670 |
-| conversational | 0/693 | 1/693 | 0/693 | 0/693 |
+`datetime_money` alone accounts for 8 of the 12 recovered errors, going from 9 errors
+to 1. Band-limiting to 300-3400 Hz removes high-frequency content, and Piper emits
+artefacts up there that the recogniser trips over. Stripping them helps.
 
-Band-limiting to 300-3400 Hz removes high-frequency content, and both systems emit
-artefacts up there that the recogniser trips over. Stripping them helps, most of all
-on `datetime_money`, which is where ZipVoice loses 9 of its 11 recovered errors.
+Packet loss does cost something, but very little: 0.07 points at 1 percent and 0.10
+more at 3 percent. A 3 percent loss rate is a bad line.
 
-**The consequence is uncomfortable.** This project exists on the premise that the
-telephone line destroys quality and a telephony-native model would recover it. For
-intelligibility, measured by word error rate, the line destroys nothing. The case
-for a narrowband vocoder has to rest on something else: naturalness, or the compute
-saved by generating 8kHz directly instead of 24kHz and resampling. It cannot rest on
-word error rate, because there is no gap to close.
+**The consequence is uncomfortable, and it is now backed by an exactly reproducible
+measurement.** This project exists on the premise that the telephone line destroys
+quality and a telephony-native model would recover it. For intelligibility, the line
+destroys nothing: it is worth 0.41 points in the other direction. The case for a
+narrowband vocoder has to rest on naturalness, or on the compute saved by generating
+8 kHz directly instead of 24 kHz and resampling. It cannot rest on word error rate,
+because there is no gap to close.
 
 ### 2. The small CPU model beats the large GPU model on both axes
 
@@ -89,55 +107,27 @@ is 342 ms p50 against a 150 ms budget for the entire round trip.
 - The reproducibility rerun against the 0.1 point band
 - Every manual listening gate
 
-### 4. The benchmark does not reproduce within its stated band
+### 4. The benchmark now reproduces exactly, after one fix
 
-`docs/REPRODUCING.md` claims two runs of the same entry agree within 0.1 percentage
-points. Running the identical Piper configuration twice:
+`docs/REPRODUCING.md` claimed a 0.1 point band. Before the fix that was not
+achievable: the same Piper configuration run twice moved by up to 0.28 points, with
+three of four conditions outside the band, and the loss series came out non-monotonic.
 
-| Condition | run 1 | run 2 | delta | inside 0.1pp |
-| --- | --- | --- | --- | --- |
-| wideband | 3.44 | 3.20 | -0.24 | no |
-| clean | 3.17 | 3.27 | +0.10 | no |
-| loss_1pct | 3.17 | 3.24 | +0.07 | yes |
-| loss_3pct | 3.48 | 3.20 | -0.28 | no |
+Two probes found the cause. Transcribing the same 40 clips twice inside one process
+returns identical text 40 of 40, under `cuda-float16`, `cuda-float32` and `cpu-int8`
+alike, so the listener was never the problem. Synthesising the same text twice
+returned **0 of 8 identical waveforms**, with differing lengths. Piper is VITS-based
+and samples noise for its stochastic duration predictor, so every call produced
+different audio. The benchmark was comparing transcripts of different recordings.
 
-Three of four are outside the band.
+Zeroing both noise terms fixed it. Two full runs since: **1,200 identical
+transcripts, 0.0000 points of drift.** The band is 0.0, and the version string carries
+`+det` or `+sampled` because the waveform differs between them.
 
-`wideband` narrows it. It applies no codec and no packet loss, and the references are
-identical, yet **63 of 300 transcripts differ** between runs, including content and
-not just casing:
-
-```
-dt-0021  run 1: The postal code is K7 of 3M9.
-         run 2: The postal code is K7A3M9.
-```
-
-**The cause is the system under test, not the listener.** Two probes settled it.
-
-Transcribing the same 40 clips twice inside one process returns identical text 40 out
-of 40, under `cuda-float16`, `cuda-float32` and `cpu-int8` alike. The listener is
-deterministic. (`cpu-int8` is also 56x slower per pass, so CPU inference is not a
-practical fallback: 1,200 clips would take about five hours.)
-
-Synthesising the same text twice returns **0 of 8 identical waveforms**, with
-differing lengths. Piper is VITS-based and samples noise for its stochastic duration
-predictor, so every call produces different audio. The benchmark was re-synthesising
-each run and comparing transcripts of different recordings.
-
-**Fixed** by zeroing both noise terms, which makes synthesis reproducible: 8 of 8
-identical, rms difference 0.0. Because that changes the waveform, it changes the
-system identity too, so the version string now carries the mode: `+det` or
-`+sampled`. Records made before this are not comparable to records made after, and
-their bare version string says so.
-
-**What follows.** Every word error rate in this document predates the fix and was
-measured on audio that changed between runs. The band has to be re-measured on
-deterministic synthesis before any tolerance is stated. The Piper against ZipVoice
-gap of 0.89 points is larger than the 0.28 of drift and probably survives, but that
-is an expectation, not a measurement.
-
-ZipVoice is prompt-conditioned flow matching and is likely to have the same problem
-from a different direction. It has not been probed.
+Worth stating plainly: the first diagnosis blamed faster-whisper for being
+non-deterministic on GPU. That was wrong, and the probe that disproved it cost about
+fifteen cents. The listener is deterministic across separate containers and separate
+GPUs.
 
 ### 5. The headline listener disagrees with the second column
 
@@ -159,10 +149,18 @@ picking one.
 
 ## Recommendation
 
-Do the listening gate first. It is free and it is the only check that can invalidate
-everything above.
+The benchmark is now trustworthy for Piper. Three things follow, in order.
 
-Then settle the premise before spending on training. If the phone line costs nothing
-in word error rate, the narrowband vocoder has to be justified on naturalness or on
-compute, and neither is measured yet. Deciding that is cheaper than training against
-a target that does not exist.
+**Do the listening gate.** It is free and it is the only check that can invalidate
+everything above. A word error rate can look perfect while the audio is broken.
+
+**Re-measure ZipVoice on deterministic synthesis**, and probe it first with
+`probe_zipvoice_determinism`. It is flow matching and starts from noise, so it may
+have exactly the defect Piper had. Until then no ZipVoice number is quotable and the
+Piper-beats-ZipVoice conclusion is unverified.
+
+**Then settle the premise.** The phone line costs nothing in word error rate. It is
+worth 0.41 points in the wrong direction for the argument this project rests on. A
+narrowband vocoder has to be justified on naturalness or on compute, and neither is
+measured. That decision is cheaper to make now than after training against a target
+that does not exist.

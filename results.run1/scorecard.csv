@@ -1,0 +1,6 @@
+system,version,condition,mode,status,wer,ttfb_generation_p50_ms,ttfb_generation_p95_ms,failure_rate,asr_backend,textset_hash,git_describe
+piper,piper-1.6.1+en_US-lessac-medium+det,clean,latency,ok,,110.1272725,156.85490685000002,,none,sha256:851cb1b30397921da76aa3bfae4ec97994cbb4f5a32fe3616f9502c847b73306,a1cb38e
+piper,piper-1.6.1+en_US-lessac-medium+det,clean,quality,ok,0.030647382920110194,,,0.0,faster-whisper-large-v3,sha256:851cb1b30397921da76aa3bfae4ec97994cbb4f5a32fe3616f9502c847b73306,a1cb38e
+piper,piper-1.6.1+en_US-lessac-medium+det,loss_1pct,quality,ok,0.03133608815426997,,,0.0,faster-whisper-large-v3,sha256:851cb1b30397921da76aa3bfae4ec97994cbb4f5a32fe3616f9502c847b73306,a1cb38e
+piper,piper-1.6.1+en_US-lessac-medium+det,loss_3pct,quality,ok,0.03236914600550964,,,0.0,faster-whisper-large-v3,sha256:851cb1b30397921da76aa3bfae4ec97994cbb4f5a32fe3616f9502c847b73306,a1cb38e
+piper,piper-1.6.1+en_US-lessac-medium+det,wideband,quality,ok,0.03477961432506887,,,0.0,faster-whisper-large-v3,sha256:851cb1b30397921da76aa3bfae4ec97994cbb4f5a32fe3616f9502c847b73306,a1cb38e
