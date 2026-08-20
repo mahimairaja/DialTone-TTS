@@ -103,25 +103,41 @@ points. Running the identical Piper configuration twice:
 
 Three of four are outside the band.
 
-`wideband` locates the cause exactly. It applies no codec and no packet loss, and
-Piper is deterministic CPU synthesis, so the audio is bit-identical between runs. The
-references are identical, confirmed. Yet **63 of 300 transcripts differ**, including
-content changes and not just casing:
+`wideband` narrows it. It applies no codec and no packet loss, and the references are
+identical, yet **63 of 300 transcripts differ** between runs, including content and
+not just casing:
 
 ```
 dt-0021  run 1: The postal code is K7 of 3M9.
          run 2: The postal code is K7A3M9.
 ```
 
-So the variance is in the listener, not in the codec, the text set or the system
-under test. faster-whisper on GPU is not bit-reproducible at greedy decode.
+**The cause is the system under test, not the listener.** Two probes settled it.
 
-**What follows.** The 0.1 point band is not achievable with a GPU ASR in the loop,
-and any claim resting on it is unbacked. The Piper against ZipVoice gap is 0.89
-points against run-to-run noise of about 0.28, so that comparison survives; anything
-finer than roughly half a point does not. Either pin the listener to deterministic
-decoding and re-measure the band, or restate the tolerance to what the listener can
-actually deliver. Do not quote the current figure.
+Transcribing the same 40 clips twice inside one process returns identical text 40 out
+of 40, under `cuda-float16`, `cuda-float32` and `cpu-int8` alike. The listener is
+deterministic. (`cpu-int8` is also 56x slower per pass, so CPU inference is not a
+practical fallback: 1,200 clips would take about five hours.)
+
+Synthesising the same text twice returns **0 of 8 identical waveforms**, with
+differing lengths. Piper is VITS-based and samples noise for its stochastic duration
+predictor, so every call produces different audio. The benchmark was re-synthesising
+each run and comparing transcripts of different recordings.
+
+**Fixed** by zeroing both noise terms, which makes synthesis reproducible: 8 of 8
+identical, rms difference 0.0. Because that changes the waveform, it changes the
+system identity too, so the version string now carries the mode: `+det` or
+`+sampled`. Records made before this are not comparable to records made after, and
+their bare version string says so.
+
+**What follows.** Every word error rate in this document predates the fix and was
+measured on audio that changed between runs. The band has to be re-measured on
+deterministic synthesis before any tolerance is stated. The Piper against ZipVoice
+gap of 0.89 points is larger than the 0.28 of drift and probably survives, but that
+is an expectation, not a measurement.
+
+ZipVoice is prompt-conditioned flow matching and is likely to have the same problem
+from a different direction. It has not been probed.
 
 ### 5. The headline listener disagrees with the second column
 

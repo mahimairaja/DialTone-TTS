@@ -31,12 +31,14 @@ prompt_policy:
 systems:
   - name: piper
     adapter: handset_bench.adapters.piper:PiperAdapter
-    version: piper-1.6.1+en_US-lessac-medium
+    version: piper-1.6.1+en_US-lessac-medium+det
     image: piper
     hardware: cpu
     cloning: false
     settings:
       voice: en_US-lessac-medium
+      deterministic: true
+    note: Noise terms zeroed. Piper samples noise per call otherwise, so the same text gives a different waveform every run.
 
   - name: zipvoice_distill
     adapter: handset_bench.adapters.zipvoice:ZipVoiceAdapter

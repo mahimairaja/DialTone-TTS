@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import time
 
 import modal
 
@@ -416,6 +417,120 @@ def _transcribe_with(model_fn, manifest_path: str, conditions: list[str]) -> dic
             hypotheses[entry["utterance_id"]] = model_fn(audio)
         out[condition] = hypotheses
     return out
+
+
+@app.function(
+    image=piper_image,
+    cpu=4.0,
+    timeout=15 * MINUTES,
+    volumes={"/cache": cache_vol},
+    secrets=HF_SECRET,
+)
+def probe_synthesis_determinism(n: int = 8) -> dict:
+    """Does the system produce the same waveform twice for the same text?
+
+    Piper is VITS-based and samples noise for its stochastic duration predictor,
+    so this is the other place run-to-run variance can enter, upstream of the
+    listener entirely.
+    """
+    import numpy as np
+    from handset_bench.adapters.piper import PiperAdapter
+    from handset_bench.textset import loader
+
+    adapter = PiperAdapter(voice="en_US-lessac-medium", download_dir="/cache/piper")
+    texts = [u.text for u in loader.sample(loader.load(), n)]
+
+    identical, compared, max_rms = 0, 0, 0.0
+    for text in texts:
+        a = adapter.synthesize(text)
+        b = adapter.synthesize(text)
+        if a.status != "ok" or b.status != "ok":
+            continue
+        compared += 1
+        if a.pcm.shape == b.pcm.shape:
+            if np.array_equal(a.pcm, b.pcm):
+                identical += 1
+            else:
+                max_rms = max(max_rms, float(np.sqrt(((a.pcm - b.pcm) ** 2).mean())))
+        else:
+            max_rms = max(max_rms, float("inf"))
+
+    return {
+        "identical_waveforms": identical,
+        "compared": compared,
+        "max_rms_difference": max_rms,
+    }
+
+
+@app.function(
+    image=whisper_image,
+    gpu="A10G",
+    timeout=30 * MINUTES,
+    volumes={"/audio": audio_vol, "/cache": cache_vol},
+    secrets=HF_SECRET,
+)
+def probe_listener_determinism(manifest_path: str, n: int = 40) -> dict:
+    """Does the listener return the same transcript twice for the same audio?
+
+    Decode is already greedy at temperature zero, so any variance is below that:
+    float16 reductions on the GPU, kernel autotuning, or different physical
+    hardware between runs. Transcribing twice inside one process separates
+    within-process variance from cross-container variance.
+    """
+    import sys
+
+    sys.path.insert(0, "/root")
+    import numpy as np
+    from faster_whisper import WhisperModel
+
+    audio_vol.reload()
+    manifest = json.loads(pathlib.Path(manifest_path).read_text())
+    clips = [e for e in manifest if e["status"] == "ok"][:n]
+    audio = [np.load(e["paths"]["wideband"]).astype(np.float32) for e in clips]
+
+    def transcribe_all(model):
+        out = []
+        for wav in audio:
+            segments, _ = model.transcribe(
+                wav,
+                language="en",
+                beam_size=1,
+                temperature=0.0,
+                condition_on_previous_text=False,
+                vad_filter=False,
+            )
+            out.append(" ".join(s.text for s in segments).strip())
+        return out
+
+    results = {}
+    for label, device, compute in (
+        ("cuda-float16", "cuda", "float16"),
+        ("cuda-float32", "cuda", "float32"),
+        ("cpu-int8", "cpu", "int8"),
+    ):
+        try:
+            model = WhisperModel(
+                "large-v3",
+                device=device,
+                compute_type=compute,
+                download_root="/cache/fw",
+            )
+            started = time.perf_counter()
+            first = transcribe_all(model)
+            elapsed = time.perf_counter() - started
+            second = transcribe_all(model)
+            same = sum(a == b for a, b in zip(first, second, strict=True))
+            results[label] = {
+                "identical_in_process": same,
+                "n": len(first),
+                "seconds_per_pass": round(elapsed, 1),
+                "sample": first[0][:80] if first else "",
+            }
+            del model
+        except Exception as exc:  # noqa: BLE001 - a config that will not run is a result
+            results[label] = {"error": f"{type(exc).__name__}: {exc}"}
+
+    return results
 
 
 @app.function(
