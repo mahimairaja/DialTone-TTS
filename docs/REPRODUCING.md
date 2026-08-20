@@ -107,16 +107,22 @@ Re-run any `(system, condition)` pair and compare. An entry whose aggregate WER
 moves more than the band between runs is withheld to `results/withheld/` rather than
 published with a caveat. A caveated number gets quoted without its caveat eventually.
 
-**The band is currently unset and has to be re-measured.** The same Piper
-configuration run twice moved by up to 0.28 points, with three of four conditions
-outside 0.1. The cause was the system under test, not the listener: Piper samples
-noise for its stochastic duration predictor, so it produced different audio each run.
-Zeroing both noise terms fixes it, and the version string now carries `+det` or
-`+sampled` because the waveform differs between them.
+**The band is 0.0 percentage points, measured.** Two consecutive runs of
+`piper-1.6.1+en_US-lessac-medium+det` over all 300 utterances and all four conditions
+produced identical aggregates and **1,200 identical transcripts**: not one differed.
+The 0.1 point tolerance is therefore not just achievable, it is loose.
 
-Two consecutive runs on deterministic synthesis have not yet been compared, so no
-tolerance is claimed here. Every number recorded before the fix was measured on audio
-that changed between runs. See `docs/baseline-findings.md`, finding 4.
+It was not achievable before. Piper sampled noise for its stochastic duration
+predictor and produced different audio on every call, so the benchmark was comparing
+transcripts of different recordings and drifted by up to 0.28 points. Zeroing both
+noise terms fixed it, and the version string carries `+det` or `+sampled` because the
+waveform differs between them. Any record with a bare version string predates the fix
+and is not comparable to one made after it.
+
+Two things this rules out. The listener is not a source of drift: faster-whisper at
+greedy decode returned identical text across separate containers and separate GPUs.
+Neither is the codec: the packet-loss seed is derived from the utterance id, so the
+same frames drop every run. See `docs/baseline-findings.md`, finding 4.
 
 ## What the numbers do not say
 
