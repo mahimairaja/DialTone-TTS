@@ -419,25 +419,17 @@ def _transcribe_with(model_fn, manifest_path: str, conditions: list[str]) -> dic
     return out
 
 
-@app.function(
-    image=piper_image,
-    cpu=4.0,
-    timeout=15 * MINUTES,
-    volumes={"/cache": cache_vol},
-    secrets=HF_SECRET,
-)
-def probe_synthesis_determinism(n: int = 8) -> dict:
-    """Does the system produce the same waveform twice for the same text?
+def _synthesis_determinism(adapter, n: int) -> dict:
+    """Does the adapter produce the same waveform twice for the same text?
 
-    Piper is VITS-based and samples noise for its stochastic duration predictor,
-    so this is the other place run-to-run variance can enter, upstream of the
-    listener entirely.
+    Ask this of every system before trusting any number from it. Piper sampled
+    noise for its stochastic duration predictor and produced different audio every
+    call, which made the whole benchmark irreproducible without anything looking
+    wrong.
     """
     import numpy as np
-    from handset_bench.adapters.piper import PiperAdapter
     from handset_bench.textset import loader
 
-    adapter = PiperAdapter(voice="en_US-lessac-medium", download_dir="/cache/piper")
     texts = [u.text for u in loader.sample(loader.load(), n)]
 
     identical, compared, max_rms = 0, 0, 0.0
@@ -456,10 +448,48 @@ def probe_synthesis_determinism(n: int = 8) -> dict:
             max_rms = max(max_rms, float("inf"))
 
     return {
+        "version": adapter.version_string(),
         "identical_waveforms": identical,
         "compared": compared,
         "max_rms_difference": max_rms,
     }
+
+
+@app.function(
+    image=piper_image,
+    cpu=4.0,
+    timeout=15 * MINUTES,
+    volumes={"/cache": cache_vol},
+    secrets=HF_SECRET,
+)
+def probe_piper_determinism(n: int = 8) -> dict:
+    from handset_bench.adapters.piper import PiperAdapter
+
+    return _synthesis_determinism(
+        PiperAdapter(voice="en_US-lessac-medium", download_dir="/cache/piper"), n
+    )
+
+
+@app.function(
+    image=zipvoice_image,
+    gpu="A10G",
+    timeout=20 * MINUTES,
+    volumes={"/cache": cache_vol, "/data": data_vol},
+    secrets=HF_SECRET,
+)
+def probe_zipvoice_determinism(n: int = 6) -> dict:
+    """ZipVoice is flow matching, so it starts from noise. Same question."""
+    from handset_bench.adapters.zipvoice import ZipVoiceAdapter
+
+    prompt_wav, prompt_text = _load_prompt()
+    return _synthesis_determinism(
+        ZipVoiceAdapter(
+            model_name="zipvoice_distill",
+            prompt_wav=prompt_wav,
+            prompt_text=prompt_text,
+        ),
+        n,
+    )
 
 
 @app.function(
