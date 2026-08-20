@@ -1,0 +1,49 @@
+[project]
+name = "dialtone-workspace"
+version = "0.0.0"
+description = "DialTone: telephony-native TTS and the handset-bench eval harness"
+requires-python = "==3.12.*"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+handset-bench = { workspace = true }
+dialtone = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "modal>=1.5",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+# The explainer video is a separate tool with its own environment and its own
+# ruff.toml. It is not part of the published repo, so it is not linted with it.
+extend-exclude = ["video"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# B008 flags function calls in argument defaults. That is exactly how Typer
+# declares options, so the rule is a false positive for the CLI module only.
+"packages/handset-bench/src/handset_bench/cli.py" = ["B008"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["packages/handset-bench/tests", "packages/dialtone/tests"]
+markers = [
+    "slow: long-running tests (training, full matrix runs)",
+    "modal: requires Modal credentials and network",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
