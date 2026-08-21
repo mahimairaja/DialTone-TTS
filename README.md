@@ -98,13 +98,18 @@ carries codes. Dropping samples first would model something that does not happen
 
 ## Layout
 
-| Package | What it does |
-| :--- | :--- |
-| `handset-bench` | The benchmark. Synthesises a frozen 300-utterance text set, pushes it through the codec chain, transcribes it, and scores word error rate and latency per condition |
-| `dialtone` | Corpus tooling: licence gating, the frozen split, provenance. Also an untrained narrowband vocoder, kept because the differentiable codec layer in it is useful on its own |
+The benchmark now lives in its own repository and is installable:
+**[mahimailabs/handset-bench](https://github.com/mahimailabs/handset-bench)**. It holds
+the codec chain, the frozen text set and the scoring rules, and it can score any system
+with a `synthesize` method. This repo depends on it at a pinned commit.
 
-`handset-bench` does not import `dialtone`, enforced by a test. The benchmark has to be
-able to score a system it knows nothing about, so the dependency only runs one way.
+What stays here is the corpus tooling (licence gating, the frozen split, provenance),
+the Modal apps that run the matrix, the findings, and an untrained narrowband vocoder.
+
+There is exactly one implementation of the telephony chain, and a test enforces that it
+comes from the installed package rather than a copy. Two copies can drift, and if
+training and evaluation conditions drift apart, every quality claim built on them
+becomes unfalsifiable.
 
 **No vocoder has been trained.** The code in `packages/dialtone/src/dialtone/vocoder/`
 is architecture and a differentiable codec layer, verified by tests, with no training
