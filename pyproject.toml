@@ -4,18 +4,15 @@ version = "0.0.0"
 description = "DialTone: telephony-native TTS and the handset-bench eval harness"
 requires-python = "==3.12.*"
 # handset-bench provides the codec chain, the frozen text set and the scoring
-# rules, and its CLI renders the scorecard.
-dependencies = ["handset-bench"]
+# rules, and its CLI renders the scorecard. Pinned exactly, not to a range: these
+# define what every number in this repo means, so they must not move without a
+# deliberate bump and a rerun.
+dependencies = ["handset-bench==0.1.0"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
 
 [tool.uv.sources]
-# handset-bench lives in its own repository now. Pinned to a commit rather than a
-# range: the codec chain and the scoring rules define what every number in this
-# repo means, so they must not move underneath it without a deliberate bump.
-# Switch to a plain PyPI version once it is published.
-handset-bench = { git = "https://github.com/mahimailabs/handset-bench.git", rev = "011716a99fac02d6eb266791466a47165785788e" }
 dialtone = { workspace = true }
 
 [dependency-groups]

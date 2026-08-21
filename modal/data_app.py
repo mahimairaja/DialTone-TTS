@@ -11,7 +11,10 @@ MINUTES = 60
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 DIALTONE_SRC = REPO_ROOT / "packages" / "dialtone" / "src" / "dialtone"
-BENCH_SRC = REPO_ROOT / "packages" / "handset-bench" / "src" / "handset_bench"
+
+# Pinned exactly. dialtone imports the codec chain from here and never
+# reimplements it, so a drift would separate training from evaluation silently.
+BENCH_PIN = "handset-bench==0.1.0"
 
 app = modal.App("dialtone-data")
 
@@ -20,9 +23,8 @@ data_vol = modal.Volume.from_name("dialtone-data", create_if_missing=True)
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("curl", "tar")
-    .uv_pip_install("numpy==2.5.2", "soundfile==0.14.0")
+    .uv_pip_install("numpy==2.5.2", "soundfile==0.14.0", BENCH_PIN)
     .add_local_dir(DIALTONE_SRC, "/root/dialtone")
-    .add_local_dir(BENCH_SRC, "/root/handset_bench")
 )
 
 #: Subsets ingested by default.

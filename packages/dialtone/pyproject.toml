@@ -8,7 +8,7 @@ dependencies = [
     # The codec chain is imported from handset-bench, never reimplemented here.
     # This is the single most important dependency in the project: it is what
     # keeps training conditions and evaluation conditions from drifting apart.
-    "handset-bench",
+    "handset-bench==0.1.0",
     "torch>=2.4",
     "torchaudio>=2.4",
     "numpy>=1.26",
