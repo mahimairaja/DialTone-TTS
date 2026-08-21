@@ -18,7 +18,13 @@ except Exception:  # noqa: BLE001 - absence is a valid state, not an error
     HF_SECRET = []
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
-BENCH_SRC = REPO_ROOT / "packages" / "handset-bench" / "src" / "handset_bench"
+
+# Pinned to a commit, not a range. The codec chain and the scoring rules define
+# what every number here means, so they must not move without a deliberate bump.
+BENCH_PIN = (
+    "handset-bench @ git+https://github.com/mahimailabs/handset-bench.git"
+    "@011716a99fac02d6eb266791466a47165785788e"
+)
 
 app = modal.App("dialtone-bench")
 
@@ -35,14 +41,10 @@ _base = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "soundfile==0.14.0",
     "jiwer==4.0.0",
     "whisper-normalizer==0.1.15",
+    BENCH_PIN,
 )
 
-# add_local_dir must be the LAST step in each chain. Modal mounts these files at
-_MOUNT = ("/root/handset_bench",)
-
-piper_image = _base.uv_pip_install("piper-tts==1.6.1").add_local_dir(
-    BENCH_SRC, "/root/handset_bench"
-)
+piper_image = _base.uv_pip_install("piper-tts==1.6.1")
 
 # ZipVoice is installed from a pinned git checkout, not from PyPI.
 ZIPVOICE_SHA = "2f7326fbfe999a3ad179e3f1af82a424d4a62819"
@@ -80,7 +82,6 @@ zipvoice_image = (
         find_links="https://k2-fsa.github.io/icefall/piper_phonemize.html",
     )
     .env({"PYTHONPATH": "/opt/ZipVoice:/root"})
-    .add_local_dir(BENCH_SRC, "/root/handset_bench")
 )
 
 _SITE = "/usr/local/lib/python3.12/site-packages"
@@ -100,7 +101,6 @@ whisper_image = (
         f"echo {_SITE}/nvidia/cudnn/lib >> /etc/ld.so.conf.d/nvidia-wheels.conf",
         "ldconfig",
     )
-    .add_local_dir(BENCH_SRC, "/root/handset_bench")
 )
 
 # NeMo is a large image and pins its own torch and numpy. It is built from a bare
@@ -114,7 +114,6 @@ parakeet_image = (
         "whisper-normalizer",
         "huggingface_hub>=0.34",
     )
-    .add_local_dir(BENCH_SRC, "/root/handset_bench")
 )
 
 # Parakeet is opt-in, and the reason is structural rather than stylistic.

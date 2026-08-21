@@ -3,13 +3,19 @@ name = "dialtone-workspace"
 version = "0.0.0"
 description = "DialTone: telephony-native TTS and the handset-bench eval harness"
 requires-python = "==3.12.*"
-dependencies = []
+# handset-bench provides the codec chain, the frozen text set and the scoring
+# rules, and its CLI renders the scorecard.
+dependencies = ["handset-bench"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
 
 [tool.uv.sources]
-handset-bench = { workspace = true }
+# handset-bench lives in its own repository now. Pinned to a commit rather than a
+# range: the codec chain and the scoring rules define what every number in this
+# repo means, so they must not move underneath it without a deliberate bump.
+# Switch to a plain PyPI version once it is published.
+handset-bench = { git = "https://github.com/mahimailabs/handset-bench.git", rev = "011716a99fac02d6eb266791466a47165785788e" }
 dialtone = { workspace = true }
 
 [dependency-groups]
@@ -31,14 +37,9 @@ extend-exclude = ["video"]
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 
-[tool.ruff.lint.per-file-ignores]
-# B008 flags function calls in argument defaults. That is exactly how Typer
-# declares options, so the rule is a false positive for the CLI module only.
-"packages/handset-bench/src/handset_bench/cli.py" = ["B008"]
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["packages/handset-bench/tests", "packages/dialtone/tests"]
+testpaths = ["packages/dialtone/tests"]
 markers = [
     "slow: long-running tests (training, full matrix runs)",
     "modal: requires Modal credentials and network",
