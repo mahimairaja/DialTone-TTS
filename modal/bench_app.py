@@ -19,12 +19,9 @@ except Exception:  # noqa: BLE001 - absence is a valid state, not an error
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 
-# Pinned to a commit, not a range. The codec chain and the scoring rules define
+# Pinned exactly, not to a range. The codec chain and the scoring rules define
 # what every number here means, so they must not move without a deliberate bump.
-BENCH_PIN = (
-    "handset-bench @ git+https://github.com/mahimailabs/handset-bench.git"
-    "@011716a99fac02d6eb266791466a47165785788e"
-)
+BENCH_PIN = "handset-bench==0.1.0"
 
 app = modal.App("dialtone-bench")
 
@@ -677,10 +674,6 @@ def run_matrix(
     chunking: bool = True,
 ):
     """Run the matrix, cheap-first, refusing to launch beyond the cost ceiling."""
-    import sys
-
-    sys.path.insert(0, str(REPO_ROOT / "packages" / "handset-bench" / "src"))
-
     from handset_bench import report, scoring
     from handset_bench.textset import loader
 

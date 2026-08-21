@@ -98,10 +98,15 @@ carries codes. Dropping samples first would model something that does not happen
 
 ## Layout
 
-The benchmark now lives in its own repository and is installable:
-**[mahimailabs/handset-bench](https://github.com/mahimailabs/handset-bench)**. It holds
+The benchmark now lives in its own repository and is on PyPI:
+**[handset-bench](https://pypi.org/project/handset-bench/)**
+([source](https://github.com/mahimailabs/handset-bench)). It holds
 the codec chain, the frozen text set and the scoring rules, and it can score any system
 with a `synthesize` method. This repo depends on it at a pinned commit.
+
+```bash
+pip install handset-bench   # score your own system, no Modal and no corpus needed
+```
 
 What stays here is the corpus tooling (licence gating, the frozen split, provenance),
 the Modal apps that run the matrix, the findings, and an untrained narrowband vocoder.

@@ -397,7 +397,7 @@ vocoder = [
 requires-dist = [
     { name = "datasets", marker = "extra == 'data'", specifier = ">=3.0" },
     { name = "einops", marker = "extra == 'vocoder'", specifier = ">=0.8" },
-    { name = "handset-bench", git = "https://github.com/mahimailabs/handset-bench.git?rev=011716a99fac02d6eb266791466a47165785788e" },
+    { name = "handset-bench", specifier = "==0.1.0" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "polars", marker = "extra == 'data'", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -428,7 +428,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "handset-bench", git = "https://github.com/mahimailabs/handset-bench.git?rev=011716a99fac02d6eb266791466a47165785788e" }]
+requires-dist = [{ name = "handset-bench", specifier = "==0.1.0" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -576,7 +576,7 @@ wheels = [
 [[package]]
 name = "handset-bench"
 version = "0.1.0"
-source = { git = "https://github.com/mahimailabs/handset-bench.git?rev=011716a99fac02d6eb266791466a47165785788e#011716a99fac02d6eb266791466a47165785788e" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jiwer" },
     { name = "numpy" },
@@ -588,6 +588,10 @@ dependencies = [
     { name = "torchaudio" },
     { name = "typer" },
     { name = "whisper-normalizer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/89/691117b5dee2e73925a08c15310f402b6ededcc264c42f317c075acd082b/handset_bench-0.1.0.tar.gz", hash = "sha256:8cfc74868e4393f6f381301aa322b93e3a785af8d5acdd49059ff2709c128d95", size = 55065, upload-time = "2026-08-21T12:46:25.963Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/1d/eee56b73c84f238bac41482267bde7427424f7423ebc9f0ad015db44339e/handset_bench-0.1.0-py3-none-any.whl", hash = "sha256:0ac72980e9cf731043d09f3dc8c168775a2d90c71fd7036565fbd918926f3e1c", size = 55367, upload-time = "2026-08-21T12:46:24.761Z" },
 ]
 
 [[package]]
